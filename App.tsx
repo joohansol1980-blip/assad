@@ -1,286 +1,43 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Patient, AppSettings, ViewMode } from './types';
+import React, { useState } from 'react';
+import { ViewMode } from './types';
 import DeskView from './components/DeskView';
 import BoardView from './components/BoardView';
 import SettingsModal from './components/SettingsModal';
 import Toast from './components/Toast';
-import { initSupabase, getSupabaseClient, getLocalPatients, saveLocalPatients } from './services/supabaseService';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
-// Simple "Ding" sound in Base64
-const CHIME_SOUND = "data:audio/mp3;base64,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";
-
-const DEFAULT_SETTINGS: AppSettings = {
-  supabaseUrl: 'https://lvxusbagwcovuxwfdxld.supabase.co',
-  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2eHVzYmFnd2NvdnV4d2ZkeGxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMDUxODYsImV4cCI6MjA4NjU4MTE4Nn0.Q6TgvcxBCK6WQn1x_00XXnYaMPUIZ3-Jv9vja7cRysI',
-  geminiApiKey: '',
-  useSupabase: true,
-  enableSystemNotifications: false,
-};
+// Custom Hooks
+import { useSettings } from './hooks/useSettings';
+import { useNotifications } from './hooks/useNotifications';
+import { usePatients } from './hooks/usePatients';
 
 function App() {
-  // --- State ---
-  const [patients, setPatients] = useState<Patient[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.DESK);
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
-  // Notification State
-  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'alert'; isVisible: boolean }>({
-    message: '',
-    type: 'info',
-    isVisible: false,
-  });
-  const [badgeCount, setBadgeCount] = useState(0);
-  
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Hook: Settings & Theme
+  const { 
+    settings, 
+    isSettingsOpen, 
+    setIsSettingsOpen, 
+    isDarkMode, 
+    toggleTheme, 
+    saveSettings 
+  } = useSettings();
 
-  // --- Helpers ---
-  const triggerNotification = useCallback((message: string, type: 'info' | 'success' | 'alert' = 'info') => {
-    // 1. In-App Toast
-    setNotification({ message, type, isVisible: true });
-    
-    // 2. Sound
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => console.warn("Audio play blocked", e));
-    }
+  // Hook: Notifications (Needs settings for permission check)
+  const { 
+    notification, 
+    triggerNotification, 
+    closeNotification 
+  } = useNotifications(settings);
 
-    // 3. System Desktop Notification (Even if minimized)
-    if (settings.enableSystemNotifications && 'Notification' in window && Notification.permission === 'granted') {
-      try {
-         // Create system notification
-         new Notification("PhysioFlow 메모 알림", {
-           body: message,
-           icon: '/vite.svg', // Fallback to vite logo or can use a CDN link
-           tag: 'physioflow-update', // Tags prevent stacking too many notifications
-           silent: true // We play our own sound via Audio API, but system sound can be enabled if desired
-         });
-      } catch (e) {
-        console.error("System notification failed", e);
-      }
-    }
-
-    // 4. Update App Badge (Menu bar / Taskbar count)
-    if (document.visibilityState === 'hidden' && 'setAppBadge' in navigator) {
-      setBadgeCount(prev => {
-        const newCount = prev + 1;
-        (navigator as any).setAppBadge(newCount).catch((e: any) => console.log("Badge error", e));
-        return newCount;
-      });
-    }
-
-  }, [settings.enableSystemNotifications]);
-
-  const closeNotification = () => {
-    setNotification(prev => ({ ...prev, isVisible: false }));
-  };
-
-  // --- Initialization ---
-  useEffect(() => {
-    // Initialize Audio
-    audioRef.current = new Audio(CHIME_SOUND);
-    audioRef.current.volume = 0.5;
-
-    // Load Settings
-    const savedSettings = localStorage.getItem('app_settings');
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
-      
-      // Auto-fill defaults
-      if (!parsed.supabaseUrl) parsed.supabaseUrl = DEFAULT_SETTINGS.supabaseUrl;
-      if (!parsed.supabaseKey) parsed.supabaseKey = DEFAULT_SETTINGS.supabaseKey;
-      if (parsed.useSupabase === undefined) parsed.useSupabase = true;
-      if (parsed.enableSystemNotifications === undefined) parsed.enableSystemNotifications = false;
-
-      setSettings(parsed);
-    } else {
-      setSettings(DEFAULT_SETTINGS);
-    }
-
-    // Load Theme
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
-    } else {
-      setIsDarkMode(false);
-      document.documentElement.classList.remove('dark');
-    }
-
-    // Load Local Data
-    setPatients(getLocalPatients());
-
-    // Clear badge on focus
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        setBadgeCount(0);
-        if ('clearAppBadge' in navigator) {
-          (navigator as any).clearAppBadge().catch((e: any) => console.log("Clear badge error", e));
-        }
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleVisibilityChange);
-    };
-  }, []);
-
-  // --- Supabase Connection & Subscription ---
-  useEffect(() => {
-    let channel: RealtimeChannel | null = null;
-
-    const connectSupabase = async () => {
-      if (settings.useSupabase && settings.supabaseUrl && settings.supabaseKey) {
-        const success = initSupabase(settings.supabaseUrl, settings.supabaseKey);
-        setIsSupabaseConnected(success);
-
-        if (success) {
-          const supabase = getSupabaseClient();
-          if (supabase) {
-            // Fetch Initial Data
-            const { data, error } = await supabase
-              .from('patients')
-              .select('*')
-              .order('created_at', { ascending: true });
-            
-            if (!error && data) {
-              setPatients(data as Patient[]);
-            }
-
-            // Realtime Subscription
-            channel = supabase
-              .channel('schema-db-changes')
-              .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'patients' },
-                (payload) => {
-                  if (payload.eventType === 'INSERT') {
-                    const newPatient = payload.new as Patient;
-                    setPatients(prev => [...prev, newPatient]);
-                    triggerNotification(`새 메모: ${newPatient.name}`, 'alert');
-                  } else if (payload.eventType === 'UPDATE') {
-                    const updatedPatient = payload.new as Patient;
-                    setPatients(prev => prev.map(p => p.id === payload.new.id ? updatedPatient : p));
-                    
-                    if (updatedPatient.status === 'in-progress') {
-                       triggerNotification(`확인 중: ${updatedPatient.name}`, 'success');
-                    } else if (updatedPatient.status === 'waiting') {
-                       triggerNotification(`대기 이동: ${updatedPatient.name}`, 'info');
-                    }
-                  } else if (payload.eventType === 'DELETE') {
-                     setPatients(prev => prev.filter(p => p.id !== payload.old.id));
-                  }
-                }
-              )
-              .subscribe();
-          }
-        }
-      } else {
-        setIsSupabaseConnected(false);
-        setPatients(getLocalPatients());
-      }
-    };
-
-    connectSupabase();
-
-    return () => {
-      const supabase = getSupabaseClient();
-      if (channel && supabase) supabase.removeChannel(channel);
-    };
-  }, [settings.useSupabase, settings.supabaseUrl, settings.supabaseKey, triggerNotification]);
-
-  // --- Handlers ---
-
-  const toggleTheme = () => {
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.theme = 'dark';
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.theme = 'light';
-    }
-  };
-
-  const handleSaveSettings = (newSettings: AppSettings) => {
-    setSettings(newSettings);
-    localStorage.setItem('app_settings', JSON.stringify(newSettings));
-  };
-
-  const addPatient = async (name: string, treatment: string) => {
-    const newPatient: Patient = {
-      id: crypto.randomUUID(),
-      name,
-      treatment,
-      status: 'waiting',
-      created_at: new Date().toISOString()
-    };
-
-    if (isSupabaseConnected) {
-      const supabase = getSupabaseClient();
-      await supabase?.from('patients').insert([
-        { 
-          name, 
-          treatment, 
-          status: 'waiting' 
-        }
-      ]);
-      // Note: Realtime subscription will handle state update and notification
-    } else {
-      const updated = [...patients, newPatient];
-      setPatients(updated);
-      saveLocalPatients(updated);
-      triggerNotification(`새 메모: ${name}`, 'alert');
-    }
-  };
-
-  const updateStatus = async (id: string, status: Patient['status']) => {
-    const patientName = patients.find(p => p.id === id)?.name || '';
-
-    if (status === 'done' && !isSupabaseConnected) {
-       deletePatient(id);
-       return;
-    }
-    
-    if (status === 'done' && isSupabaseConnected) {
-        const supabase = getSupabaseClient();
-        await supabase?.from('patients').delete().eq('id', id);
-        return;
-    }
-
-    if (isSupabaseConnected) {
-      const supabase = getSupabaseClient();
-      await supabase?.from('patients').update({ status }).eq('id', id);
-       // Realtime handles update
-    } else {
-      const updated = patients.map(p => p.id === id ? { ...p, status } : p);
-      setPatients(updated);
-      saveLocalPatients(updated);
-      
-      if (status === 'in-progress') {
-        triggerNotification(`확인 중: ${patientName}`, 'success');
-      } else {
-        triggerNotification(`대기 이동: ${patientName}`, 'info');
-      }
-    }
-  };
-
-  const deletePatient = async (id: string) => {
-    if (isSupabaseConnected) {
-      const supabase = getSupabaseClient();
-      await supabase?.from('patients').delete().eq('id', id);
-    } else {
-      const updated = patients.filter(p => p.id !== id);
-      setPatients(updated);
-      saveLocalPatients(updated);
-    }
-  };
+  // Hook: Patients Logic (Needs settings and notifier)
+  const { 
+    patients, 
+    isSupabaseConnected, 
+    addPatient, 
+    updateStatus, 
+    deletePatient 
+  } = usePatients(settings, triggerNotification);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -378,7 +135,7 @@ function App() {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
-        onSave={handleSaveSettings}
+        onSave={saveSettings}
       />
     </div>
   );
