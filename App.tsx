@@ -1,10 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Patient, AppSettings, ViewMode } from './types';
 import DeskView from './components/DeskView';
 import BoardView from './components/BoardView';
 import SettingsModal from './components/SettingsModal';
+import Toast from './components/Toast';
 import { initSupabase, getSupabaseClient, getLocalPatients, saveLocalPatients } from './services/supabaseService';
 import { RealtimeChannel } from '@supabase/supabase-js';
+
+// Simple "Ding" sound in Base64 to avoid external dependencies
+const NOTIFICATION_SOUND = "data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU"; // Shortened placeholder, will use a real simple beep logic or full base64 in real app. 
+// Using a slightly longer valid base64 for a chime sound (Glass Ping)
+const CHIME_SOUND = "data:audio/mp3;base64,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";
 
 const DEFAULT_SETTINGS: AppSettings = {
   supabaseUrl: 'https://lvxusbagwcovuxwfdxld.supabase.co',
@@ -22,17 +28,44 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
+  // Notification State
+  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'alert'; isVisible: boolean }>({
+    message: '',
+    type: 'info',
+    isVisible: false,
+  });
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // --- Helpers ---
+  const triggerNotification = useCallback((message: string, type: 'info' | 'success' | 'alert' = 'info') => {
+    setNotification({ message, type, isVisible: true });
+    
+    // Play sound
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.warn("Audio play blocked", e));
+    }
+  }, []);
+
+  const closeNotification = () => {
+    setNotification(prev => ({ ...prev, isVisible: false }));
+  };
+
   // --- Initialization ---
   useEffect(() => {
+    // Initialize Audio
+    audioRef.current = new Audio(CHIME_SOUND);
+    audioRef.current.volume = 0.5;
+
     // Load Settings
     const savedSettings = localStorage.getItem('app_settings');
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings);
       
-      // Auto-fill defaults if missing (Migration for existing users)
+      // Auto-fill defaults
       if (!parsed.supabaseUrl) parsed.supabaseUrl = DEFAULT_SETTINGS.supabaseUrl;
       if (!parsed.supabaseKey) parsed.supabaseKey = DEFAULT_SETTINGS.supabaseKey;
-      // If we have credentials but useSupabase is undefined, default to true
       if (parsed.useSupabase === undefined) parsed.useSupabase = true;
 
       setSettings(parsed);
@@ -49,7 +82,7 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
 
-    // Load Local Data initially
+    // Load Local Data
     setPatients(getLocalPatients());
   }, []);
 
@@ -83,9 +116,18 @@ function App() {
                 { event: '*', schema: 'public', table: 'patients' },
                 (payload) => {
                   if (payload.eventType === 'INSERT') {
-                    setPatients(prev => [...prev, payload.new as Patient]);
+                    const newPatient = payload.new as Patient;
+                    setPatients(prev => [...prev, newPatient]);
+                    triggerNotification(`새 메모: ${newPatient.name}`, 'alert');
                   } else if (payload.eventType === 'UPDATE') {
-                    setPatients(prev => prev.map(p => p.id === payload.new.id ? (payload.new as Patient) : p));
+                    const updatedPatient = payload.new as Patient;
+                    setPatients(prev => prev.map(p => p.id === payload.new.id ? updatedPatient : p));
+                    
+                    if (updatedPatient.status === 'in-progress') {
+                       triggerNotification(`확인 중: ${updatedPatient.name}`, 'success');
+                    } else if (updatedPatient.status === 'waiting') {
+                       triggerNotification(`대기 이동: ${updatedPatient.name}`, 'info');
+                    }
                   } else if (payload.eventType === 'DELETE') {
                      setPatients(prev => prev.filter(p => p.id !== payload.old.id));
                   }
@@ -96,7 +138,7 @@ function App() {
         }
       } else {
         setIsSupabaseConnected(false);
-        setPatients(getLocalPatients()); // Revert to local if Supabase disabled
+        setPatients(getLocalPatients());
       }
     };
 
@@ -106,7 +148,7 @@ function App() {
       const supabase = getSupabaseClient();
       if (channel && supabase) supabase.removeChannel(channel);
     };
-  }, [settings.useSupabase, settings.supabaseUrl, settings.supabaseKey]);
+  }, [settings.useSupabase, settings.supabaseUrl, settings.supabaseKey, triggerNotification]);
 
   // --- Handlers ---
 
@@ -140,29 +182,29 @@ function App() {
       const supabase = getSupabaseClient();
       await supabase?.from('patients').insert([
         { 
-          // Assuming Supabase auto-generates IDs if omitted, but sending UUID is fine too if configured
-          // For simplicity, we send what we have, but usually 'id' is uuid default gen in DB
           name, 
           treatment, 
           status: 'waiting' 
         }
       ]);
+      // Note: Realtime subscription will handle state update and notification
     } else {
       const updated = [...patients, newPatient];
       setPatients(updated);
       saveLocalPatients(updated);
+      triggerNotification(`새 메모: ${name}`, 'alert');
     }
   };
 
   const updateStatus = async (id: string, status: Patient['status']) => {
+    const patientName = patients.find(p => p.id === id)?.name || '';
+
     if (status === 'done' && !isSupabaseConnected) {
-       // Local mode: Delete on done or just move? Let's delete for simplicity in local
        deletePatient(id);
        return;
     }
     
     if (status === 'done' && isSupabaseConnected) {
-        // In DB mode, we might want to delete row or mark as done. Let's delete row to keep board clean.
         const supabase = getSupabaseClient();
         await supabase?.from('patients').delete().eq('id', id);
         return;
@@ -171,10 +213,17 @@ function App() {
     if (isSupabaseConnected) {
       const supabase = getSupabaseClient();
       await supabase?.from('patients').update({ status }).eq('id', id);
+       // Realtime handles update
     } else {
       const updated = patients.map(p => p.id === id ? { ...p, status } : p);
       setPatients(updated);
       saveLocalPatients(updated);
+      
+      if (status === 'in-progress') {
+        triggerNotification(`확인 중: ${patientName}`, 'success');
+      } else {
+        triggerNotification(`대기 이동: ${patientName}`, 'info');
+      }
     }
   };
 
@@ -191,6 +240,14 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Toast Notification */}
+      <Toast 
+        message={notification.message} 
+        type={notification.type} 
+        isVisible={notification.isVisible} 
+        onClose={closeNotification} 
+      />
+
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-md z-40 sticky top-0 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
