@@ -216,6 +216,15 @@ function App() {
                 </button>
              </div>
 
+             {/* Reload Button */}
+             <button
+               onClick={() => window.location.reload()}
+               className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+               title="새로고침"
+             >
+               <span className="material-icons-round">refresh</span>
+             </button>
+
              {/* Dark Mode */}
              <button 
               onClick={toggleTheme}
