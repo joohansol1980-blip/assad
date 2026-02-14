@@ -68,15 +68,44 @@ const BoardView: React.FC<BoardViewProps> = ({ patients, onUpdateStatus }) => {
             activePatients.map(p => (
               <div 
                 key={p.id}
-                onClick={() => onUpdateStatus(p.id, 'done')}
-                className="cursor-pointer bg-green-600 text-white p-8 rounded-2xl shadow-lg shadow-green-900/20 flex justify-between items-center transform transition-all hover:brightness-110"
+                className="bg-green-600 text-white p-6 rounded-2xl shadow-lg shadow-green-900/20 flex justify-between items-center"
               >
-                <div className="flex flex-col">
-                  <span className="text-5xl font-black mb-2">{p.name}</span>
-                  <span className="text-3xl font-medium text-green-100">{p.treatment}</span>
+                {/* Content - Click to Complete */}
+                <div 
+                  onClick={() => onUpdateStatus(p.id, 'done')}
+                  className="flex-1 cursor-pointer hover:opacity-90 transition-opacity"
+                >
+                  <div className="flex flex-col">
+                    <span className="text-5xl font-black mb-2">{p.name}</span>
+                    <span className="text-3xl font-medium text-green-100">{p.treatment}</span>
+                  </div>
                 </div>
-                <div className="bg-white/20 p-3 rounded-full animate-pulse">
-                   <span className="material-icons-round text-4xl">done_all</span>
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 ml-4">
+                  {/* Undo Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStatus(p.id, 'waiting');
+                    }}
+                    className="p-4 rounded-xl bg-black/20 hover:bg-black/30 text-white/90 hover:text-white transition-colors backdrop-blur-sm"
+                    title="대기로 되돌리기"
+                  >
+                    <span className="material-icons-round text-4xl">undo</span>
+                  </button>
+
+                  {/* Complete Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStatus(p.id, 'done');
+                    }}
+                    className="p-4 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors backdrop-blur-sm animate-pulse"
+                    title="완료 처리"
+                  >
+                     <span className="material-icons-round text-4xl">done_all</span>
+                  </button>
                 </div>
               </div>
             ))
